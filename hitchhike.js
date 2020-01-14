@@ -1,4 +1,47 @@
 const uWS = require('uWebSockets.js');
+const gQL = require('graphql');
+const schema = gQL.buildSchema(`
+    type User {
+        AcctName: String!
+        AcctID: ID!
+        Email: String!
+        Phone: String!
+        DriverStatus: Boolean!
+        Verified: Boolean
+        PostedRides: [Ride]
+    }
+    type Ride {
+        DriverID: ID!
+        RideID: ID!
+        Origin: String!
+        Destination: String!
+        SeatsAvailable: Int!
+        CarType: String
+
+    }
+    query GetRides($destination: String!, $maxAllowedTime: Int!, $minStorage: Int, $minSeats: Int, $token: String!){
+        rides: [Ride]
+    }
+    mutation Signup($email: String!, $password: String!, $name: String!) {
+        signup(email: $email, password: $password, name: $name) {
+            token: String!
+        }
+    }
+    mutation Login($email: String!, $password: String!) {
+        login(email: $email, password: $password) {
+            token: String!
+        }
+    }
+    mutation PostRide($DriverID: ID!, $Origin: String!, $Destination: String!, $SeatsAvailable: Int!, $CarType: String, $StorageAvailable: String, $MiscInfo: String, $token: String!){
+        RideID: ID
+    }
+    mutation UpdateRide($RideID: ID!, $Origin: String, $Destination: String, $SeatsAvailable: Int, $CarType: String, $StorageAvailable: String, $MiscInfo: String, $token: String!){
+        $RideID
+    }
+    mutation DeleteRide($RideID: ID!, $token: String!){
+        true
+    }
+`);
 const port = 8080;
 const logger = winston.createLogger({
     level: 'info',
@@ -13,8 +56,8 @@ const logger = winston.createLogger({
         new winston.transports.File({ filename: 'combined.log' })
     ]
 });
-(async function(){
-    
+(async function () {
+
 })();
 const app = uWS.SSLApp({
     key_file_name: 'ssl/key.pem',
@@ -39,12 +82,13 @@ const app = uWS.SSLApp({
     close: (ws, code, message) => {
         logger.log({
             level: 'debug',
-            message: 'Socket connected to:' + ws.connection.remoteAddress + ' closed with code:' + code});
+            message: 'Socket connected to:' + ws.connection.remoteAddress + ' closed with code:' + code
+        });
     }
 }).listen(port, (token) => {
     if (token) {
-      logger.log('info','Listening to port ' + port);
+        logger.log('info', 'Listening to port ' + port);
     } else {
-      logger.log('error','Failed to listen to port ' + port);
+        logger.log('error', 'Failed to listen to port ' + port);
     }
-  });
+});
