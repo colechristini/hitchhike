@@ -1,23 +1,26 @@
 const uWS = require('uWebSockets.js');
 const gQL = require('graphql');
+const qs = require('qs');
+const resolvers = require('resolvers.js');
 const schema = gQL.buildSchema(`
     type User {
         AcctName: String!
         AcctID: ID!
         Email: String!
         Phone: String!
+        VerifiedDriverStatus: Boolean!
+        VerifiedUser: Boolean!
         DriverStatus: Boolean!
-        Verified: Boolean
         PostedRides: [Ride]
     }
     type Ride {
-        DriverID: ID!
+        Driver: User!
         RideID: ID!
         Origin: String!
         Destination: String!
         SeatsAvailable: Int!
         CarType: String
-
+        MiscInfo: String
     }
     query GetRides($destination: String!, $maxAllowedTime: Int!, $minStorage: Int, $minSeats: Int, $token: String!){
         rides: [Ride]
@@ -32,13 +35,19 @@ const schema = gQL.buildSchema(`
             token: String!
         }
     }
-    mutation PostRide($DriverID: ID!, $Origin: String!, $Destination: String!, $SeatsAvailable: Int!, $CarType: String, $StorageAvailable: String, $MiscInfo: String, $token: String!){
+    mutation PostRide($Driver: User!, $Origin: String!, $Destination: String!, $SeatsAvailable: Int!, $CarType: String, $StorageAvailable: String, $MiscInfo: String, $token: String!){
         RideID: ID
     }
     mutation UpdateRide($RideID: ID!, $Origin: String, $Destination: String, $SeatsAvailable: Int, $CarType: String, $StorageAvailable: String, $MiscInfo: String, $token: String!){
         $RideID
     }
+    mutation JoinRide($RideID: ID!, $Seats: Int, $token: String!){
+        JoinSuccess: Boolean
+    }
     mutation DeleteRide($RideID: ID!, $token: String!){
+        true
+    }
+    mutation logout($token: String!){
         true
     }
 `);
@@ -82,9 +91,13 @@ const app = uWS.SSLApp({
     close: (ws, code, message) => {
         logger.log({
             level: 'debug',
-            message: 'Socket connected to:' + ws.connection.remoteAddress + ' closed with code:' + code
+            message: 'Socket connected to:' + ws.connection.remoteAddress + 'closed with code:' + code + ' with message:' + message
         });
     }
+}).any('/graphql', async (res, req) => {
+    logger.log('debug', req.getQuery());
+    res.write(await gQL.graphql(schema, qs.parse(req.getQuery()), root));
+    res.end("Ended request formerly connected to:" + ws.connection.remoteAddress);
 }).listen(port, (token) => {
     if (token) {
         logger.log('info', 'Listening to port ' + port);
